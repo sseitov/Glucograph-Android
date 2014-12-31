@@ -5,7 +5,9 @@
     <string name="action_settings">Settings</string>
     <string name="action_sync">Synchronize</string>
     <string name="title_activity_value">Input Value</string>
-    <string name="title_activity_blood">Blood</string>
-    <string name="hello_world">Hello world!</string>
+    <string name="title_activity_blood">Blood sugar value</string>
+    <string name="set_morning">MORNING</string>
+    <string name="set_evening">EVENING</string>
+    <string name="set_value">SET VALUE</string>
 
 </resources>

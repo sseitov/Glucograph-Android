@@ -29,7 +29,7 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <Button
-                android:text="MORNING"
+                android:text="@string/set_morning"
                 android:textColor="@color/morning"
                 android:textSize="14dp"
                 android:textStyle="bold"
@@ -47,7 +47,7 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/currentDate" />
             <Button
-                android:text="EVENING"
+                android:text="@string/set_evening"
                 android:textColor="@color/evening"
                 android:textSize="14dp"
                 android:textStyle="bold"

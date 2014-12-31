@@ -23,13 +23,19 @@
             android:layout_height="wrap_content"
             android:inputType="textMultiLine"
             android:ems="10"
-            android:height="200dp"
+            android:layout_weight="1"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
             android:layout_marginBottom="10dp"
+            android:gravity="top"
             android:background="@android:color/background_light"
             android:id="@+id/editText"/>
-
+        <TextView
+            android:textSize="48dp"
+            android:gravity="center"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/valueText" />
         <LinearLayout
             android:layout_margin="20dp"
             android:layout_width="match_parent"
@@ -51,7 +57,7 @@
         </LinearLayout>
         <Button
             android:id="@+id/setValue"
-            android:text="Set Value"
+            android:text="@string/set_value"
             android:height="44dp"
             android:layout_margin="20dp"
             android:layout_width="fill_parent"

@@ -1,7 +1,7 @@
 package com.vchannel.glucograph;
 
+import java.sql.Date;
 import java.text.DateFormat;
-import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -9,10 +9,10 @@ import java.util.Locale;
  */
 public class BloodValue {
 
-    Date date;
-    Double morning;
-    Double evening;
-    String comment;
+    public Date date;
+    public Double morning;
+    public Double evening;
+    public String comment;
 
     BloodValue(Date date) {
         this.date = date;
@@ -36,7 +36,7 @@ public class BloodValue {
         if (this.morning > 0) {
             return this.morning.toString();
         } else {
-            return "";
+            return null;
         }
     }
 
@@ -44,7 +44,7 @@ public class BloodValue {
         if (this.evening > 0) {
             return this.evening.toString();
         } else {
-            return "";
+            return null;
         }
     }
 }
