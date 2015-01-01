@@ -6,9 +6,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.CalendarView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +41,7 @@ public class MainActivity extends Activity {
     private Button morningButton;
     private Button eveningButton;
     private BloodValue currentValue;
+    private Graphic graphic;
 
     private DataSource dataSource;
     private DbxAccountManager dbxAccountManager;
@@ -49,6 +53,10 @@ public class MainActivity extends Activity {
 
         dataSource = new DataSource(this);
         dataSource.open();
+
+        LinearLayout linearView = (LinearLayout) findViewById(R.id.graphicLayout);
+        graphic = new Graphic(this, dataSource);
+        linearView.addView(graphic);
 
         morningButton = (Button)findViewById(R.id.setMorning);
         morningButton.setOnClickListener(new View.OnClickListener() {
@@ -70,11 +78,15 @@ public class MainActivity extends Activity {
         currentDateText = (TextView)findViewById(R.id.currentDate);
 
         calendar = (CalendarView)findViewById(R.id.calendarView);
+        calendar.setShowWeekNumber(false);
         calendar.setOnDateChangeListener(new CalendarView.OnDateChangeListener() {
             @Override
             public void onSelectedDayChange(CalendarView view, int year, int month, int dayOfMonth) {
                 currentValue = getValueForDate(year, month, dayOfMonth);
                 setCurrentValue();
+                if (month != graphic.currentMonth) {
+                    graphic.setMonthValues(year, month);
+                }
             }
         });
     }
@@ -84,6 +96,7 @@ public class MainActivity extends Activity {
     {
         super.onResume();
         setCurrentValue();
+        graphic.setMonthValues(currentValue.date.getYear(), currentValue.date.getMonth());
     }
 
     @Override

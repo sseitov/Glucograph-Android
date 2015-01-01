@@ -111,7 +111,7 @@ public class Blood extends Activity {
         Intent intent = new Intent();
         double value = (double)mainPicker.getValue() + (double)decimalPicker.getValue()/10.;
         intent.putExtra("value", value);
-        intent.putExtra("comment", commentText.getText());
+        intent.putExtra("comment", commentText.getText().toString());
         setResult(RESULT_OK, intent);
         finish();
     }

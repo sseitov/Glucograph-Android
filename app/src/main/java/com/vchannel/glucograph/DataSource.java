@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Environment;
 import java.util.Calendar;
 import java.sql.Date;
+import java.util.Locale;
 
 /**
  * Created by sseitov on 31.12.14.
@@ -35,7 +36,7 @@ public class DataSource {
         Calendar src = Calendar.getInstance();
         src.set(1970, 0, 1, 0, 0, 0);
         Calendar dst = Calendar.getInstance();
-        dst.set(year, month, day, -2, 0, 0);
+        dst.set(year, month, day, -3, 0, 0);
         long diff = dst.getTimeInMillis() - src.getTimeInMillis();
         long seconds = (diff / 1000);
         return seconds;
@@ -49,7 +50,7 @@ public class DataSource {
             Date date = new java.sql.Date(cursor.getLong(0)*1000);
             return (new BloodValue(date, cursor.getDouble(1), cursor.getDouble(2), cursor.getString(3)));
         } else {
-            Date date = new Date(year, month, day);
+            Date date = new Date(year-1900, month, day);
             return (new BloodValue(date));
         }
     }
