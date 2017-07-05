@@ -1,19 +1,25 @@
 package com.vchannel.glucograph;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.CalendarView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.android.AndroidAuthSession;
+import com.dropbox.client2.exception.DropboxException;
+import com.dropbox.client2.session.AppKeyPair;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -21,18 +27,11 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 
-import com.dropbox.sync.android.DbxAccountManager;
-import com.dropbox.sync.android.DbxFile;
-import com.dropbox.sync.android.DbxFileInfo;
-import com.dropbox.sync.android.DbxFileSystem;
-import com.dropbox.sync.android.DbxPath;
-
 public class MainActivity extends Activity {
 
     private static final String appKey = "9yjxpsg3ck2b19d";
     private static final String appSecret = "ma6d3huqfcbpkbk";
 
-    private static final int REQUEST_LINK_TO_DBX    = 0;
     private static final int REQUEST_MORNING        = 1;
     private static final int REQUEST_EVENING        = 2;
 
@@ -43,8 +42,10 @@ public class MainActivity extends Activity {
     private BloodValue currentValue;
     private Graphic graphic;
 
+    private ProgressDialog progressDialog;
+
     private DataSource dataSource;
-    private DbxAccountManager dbxAccountManager;
+    private DropboxAPI<AndroidAuthSession> dbxApi;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,7 +74,9 @@ public class MainActivity extends Activity {
             }
         });
 
-        dbxAccountManager = DbxAccountManager.getInstance(getApplicationContext(), appKey, appSecret);
+        AppKeyPair appKeys = new AppKeyPair(appKey, appSecret);
+        AndroidAuthSession session = new AndroidAuthSession(appKeys);
+        dbxApi = new DropboxAPI<AndroidAuthSession>(session);
 
         currentDateText = (TextView)findViewById(R.id.currentDate);
 
@@ -91,10 +94,26 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void showMessage(String message) {
+        Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+    }
+
     @Override
     protected void onResume()
     {
         super.onResume();
+        if (dbxApi.getSession().authenticationSuccessful()) {
+            try {
+                // Required to complete auth, sets the access token on the session
+                dbxApi.getSession().finishAuthentication();
+
+                String accessToken = dbxApi.getSession().getOAuth2AccessToken();
+                setAccessToken(accessToken);
+            } catch (IllegalStateException e) {
+                showMessage("Error DropBox authenticating");
+            }
+        }
+
         setCurrentValue();
         graphic.setMonthValues(currentValue.date.getYear(), currentValue.date.getMonth());
     }
@@ -106,6 +125,18 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    private void setAccessToken(String token) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString("accessToken", token);
+        editor.commit();
+    }
+
+    private String getAccessToken() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+        return preferences.getString("accessToken", null);
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -115,10 +146,16 @@ public class MainActivity extends Activity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            if (dbxAccountManager.hasLinkedAccount()) {
-                doSynchro();
+            if (dbxApi.getSession().isLinked()) {
+                new SynchroTask().execute();
             } else {
-                dbxAccountManager.startLink((Activity)this, REQUEST_LINK_TO_DBX);
+                String token = getAccessToken();
+                if (token != null) {
+                    dbxApi.getSession().setOAuth2AccessToken(token);
+                    new SynchroTask().execute();
+                } else {
+                    dbxApi.getSession().startOAuth2Authentication(MainActivity.this);
+                }
             }
             return true;
         }
@@ -128,13 +165,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_LINK_TO_DBX) {
-            if (resultCode == Activity.RESULT_OK) {
-                Toast.makeText(this, "Link to Dropbox succeded.", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "Link to Dropbox failed or was cancelled.", Toast.LENGTH_LONG).show();
-            }
-        } else if (requestCode == REQUEST_MORNING) {
+        if (requestCode == REQUEST_MORNING) {
             if (data != null) {
                 currentValue.comment = data.getStringExtra("comment");
                 currentValue.morning = data.getDoubleExtra("value", currentValue.morning);
@@ -191,6 +222,49 @@ public class MainActivity extends Activity {
         currentDateText.setText(currentValue.dateText());
     }
 
+    private class SynchroTask extends AsyncTask<Void, Void, Void> {
+
+        private DropboxAPI.Entry existingEntry;
+        private DropboxAPI.DropboxFileInfo fileInfo;
+        private String synchroError;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            // Show progressdialog
+            progressDialog = new ProgressDialog(MainActivity.this);
+            progressDialog.setTitle(R.string.app_name);
+            progressDialog.setMessage("Synchronization...");
+            progressDialog.setIndeterminate(false);
+            progressDialog.show();
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            try {
+                FileOutputStream outputStream = new FileOutputStream(dataSource.dbPath());
+                fileInfo = dbxApi.getFile("/"+DbHelper.DB_NAME, null, outputStream, null);
+                //existingEntry = dbxApi.metadata("/"+DbHelper.DB_NAME, 1, null, false, null);
+            } catch (IOException e) {
+                synchroError = e.getMessage();
+            } catch (DropboxException e) {
+                synchroError = e.getMessage();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            progressDialog.hide();
+            if (fileInfo != null) {
+                showMessage(fileInfo.getMetadata().modified);
+            } else if (synchroError != null) {
+                showMessage(synchroError);
+            }
+        }
+    }
+    /*
     void doSynchro() {
         try {
             DbxPath dbxPath = new DbxPath(DbxPath.ROOT, DbHelper.DB_NAME);
@@ -220,4 +294,5 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Dropbox synchronization error!", Toast.LENGTH_LONG).show();
         }
     }
+    */
 }
